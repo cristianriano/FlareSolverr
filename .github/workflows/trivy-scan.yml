@@ -1,0 +1,37 @@
+name: Trivy security scan
+
+on:
+  schedule:
+    # Sundays at 06:00 UTC
+    - cron: "0 6 * * 0"
+  workflow_dispatch:
+
+jobs:
+  trivy-scan:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build image for scanning
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: flaresolverr:trivy-scan
+
+      - name: Install Trivy
+        run: curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin 0.76.2
+
+      - name: Scan image
+        # Fails the run when a CRITICAL vulnerability with an available fix is found
+        run: trivy image --exit-code 1 --ignore-unfixed --severity CRITICAL flaresolverr:trivy-scan
+
+      - name: Full report
+        run: trivy image --severity CRITICAL,HIGH --ignore-unfixed flaresolverr:trivy-scan

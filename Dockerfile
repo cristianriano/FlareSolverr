@@ -29,8 +29,11 @@ RUN dpkg -i /libgl1-mesa-dri.deb \
     && dpkg -i /adwaita-icon-theme.deb \
     # Install dependencies
     && apt-get update \
+    # Upgrade all packages to pull security fixes for the base image and the
+    # packages installed above.
+    && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends chromium chromium-common chromium-driver xvfb dumb-init \
-        procps curl vim xauth \
+        procps curl xauth \
     # Remove temporary files and hardware decoding libraries
     && rm -rf /var/lib/apt/lists/* \
     && rm -f /usr/lib/x86_64-linux-gnu/libmfxhw* \
