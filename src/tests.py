@@ -1,3 +1,4 @@
+import os
 import unittest
 from typing import Optional
 
@@ -469,6 +470,22 @@ class TestFlareSolverr(unittest.TestCase):
         body = V1ResponseBase(res.json)
         self.assertEqual(STATUS_ERROR, body.status)
         self.assertIn("Message: unknown error: net::ERR_NAME_NOT_RESOLVED", body.message)
+
+    def test_chromium_trust_store_no_compromised_ca(self):
+        # Chromium on Linux validates TLS against the NSS builtins module
+        # (libnssckbi.so), not against the OS bundle in /etc/ssl. The eMudhra
+        # intermediate CA key compromise (Oct 2026) requires the compromised
+        # root "emSign ECC Root CA - G3" to be absent there. It was removed in
+        # NSS 3.110-1+deb13u5 (DSA-6599-1, Debian trixie); bookworm has no
+        # fixed nss release.
+        nss_builtins_path = "/usr/lib/x86_64-linux-gnu/libnssckbi.so"
+        if not os.path.exists(nss_builtins_path):
+            self.skipTest("NSS builtins module not found (not Linux)")
+        with open(nss_builtins_path, 'rb') as nss_builtins:
+            compromised_ca = b"emSign ECC Root CA - G3"
+            if compromised_ca in nss_builtins.read():
+                self.fail(f"Chromium trust store ({nss_builtins_path}) trusts compromised "
+                          f"CA 'emSign ECC Root CA - G3' (eMudhra, CVE-2026-111943)")
 
     def test_v1_endpoint_request_get_deprecated_param(self):
         res = self.app.post_json('/v1', {
